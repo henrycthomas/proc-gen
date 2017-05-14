@@ -1,0 +1,18 @@
+{
+  "name": "proc-gen",
+  "version": "1.0.0",
+  "description": "A generator for sql stored procedures",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Henry Thomas",
+  "license": "ISC",
+  "dependencies": {
+    "dustjs-helpers": "^1.7.3",
+    "dustjs-linkedin": "^2.7.5",
+    "inquirer": "^3.0.6",
+    "mkdirp": "^0.5.1",
+    "mysql": "^2.13.0"
+  }
+}
