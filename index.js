@@ -24,8 +24,5 @@ inquirer.prompt({
     }, function(err){
         console.log('setup error');
         db.teardown(err);
-    })
-        
-     
-    //db.teardown();
+    });
 });

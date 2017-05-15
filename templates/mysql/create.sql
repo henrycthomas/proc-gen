@@ -1,5 +1,5 @@
 DELIMITER $${~n}
-DROP PROCEDURE IF EXISTS `{tableName}_create`;
+DROP PROCEDURE IF EXISTS `{tableName}_create`;{~n}
 CREATE DEFINER=`{user}`@`{host}` PROCEDURE `{tableName}_create`({~n}
 	{#fields}
         {#all}
@@ -16,17 +16,23 @@ BEGIN{~n}
         {tableName}{~n}
     ({~n}
         {#fields}
-            {#regular}
-                {Field}{@sep},{/sep}{~n}
-            {/regular}
+            {#all}
+                {#isAutoIncrement}
+                {:else}
+                    {Field}{@sep},{/sep}{~n}
+                {/isAutoIncrement}
+            {/all}
         {/fields}
     ){~n}
     VALUES{~n}
     ({~n}
         {#fields}
-            {#regular}
-                _{Field}{@sep},{/sep}{~n}
-            {/regular}
+            {#all}
+                {#isAutoIncrement}
+                {:else}
+                    _{Field}{@sep},{/sep}{~n}
+                {/isAutoIncrement}
+            {/all}
         {/fields}
     );{~n}
 {~n}
@@ -39,4 +45,4 @@ BEGIN{~n}
     {/fields}
     {~n}
 END$${~n}
-DELIMITER ;
+DELIMITER ;{~n}

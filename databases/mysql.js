@@ -5,6 +5,7 @@ var fs = require('fs');
 var mkdirp = require('mkdirp');
 var dust = require('dustjs-linkedin');
 require('dustjs-helpers');
+var moment = require('moment');
 
 
 var settings = {
@@ -25,6 +26,14 @@ var templatePaths = [
             {
                 name: 'update',
                 path: './templates/mysql/update.sql'
+            },
+            {
+                name: 'delete',
+                path: './templates/mysql/delete.sql'
+            },
+            {
+                name: 'read',
+                path: './templates/mysql/read.sql'
             }
         ];
 
@@ -61,7 +70,14 @@ exports.test = () => {
 
 exports.setup = () => {
     return new Promise((done, error) => {
+        var currentTime = moment();
         var questions = [
+            {
+                type: 'input',
+                name: 'notes',
+                message: 'Make a few notes on the reason for doing a new generation...',
+                default: `Generated on ${currentTime.format('DD/MM/YYYY')} at ${currentTime.format('HH:mm')}`
+            },
             {
                 type: 'input',
                 name: 'host',
@@ -84,6 +100,8 @@ exports.setup = () => {
             settings.host = answers.host;
             settings.user = answers.user;
             settings.password = answers.password;
+            settings.timestamp = currentTime;
+            settings.notes = answers.notes;
             var c = settings.connection = mysql.createConnection({
                 host: settings.host,
                 user: settings.user,
@@ -125,7 +143,7 @@ function writeOutProc(dir, name, proc){
     return new Promise((done, error) => {
         fs.writeFile(`${dir}/${name}.sql`, proc, (err) => {
             if (err) return error(err);
-            done();
+            done(proc);
         });
     });
 }
@@ -135,13 +153,11 @@ function generateForTable(tableName){
         var c = settings.connection;
         c.query(`describe ${tableName}`, (err, res, fields) => {
             if(err) return error(err);
-
-            console.log(res);
             //identify id fields
             inquirer.prompt({
                 type: 'checkbox',
                 name: 'idFields',
-                message: 'Id field(s)?',
+                message: `Id field(s) for ${tableName}?`,
                 choices: res.map(f => f.Field)
             }).then((answers) => {
                 var fields = {
@@ -149,7 +165,6 @@ function generateForTable(tableName){
                     regular: [],
                     all : [],
                     isAutoIncrement: (chunk, context, bodies, params) => {
-                        
                         return context.get(["Extra"]).indexOf('auto_increment') > -1;
                     }
                 }
@@ -162,30 +177,25 @@ function generateForTable(tableName){
 
                 fields.all = fields.id.concat(fields.regular);
 
-                //console.log("DESCRIPTION");
-                //console.log(res);
-                var dir = `./procs/${settings.db}/${tableName}`;
+                var dir = `./procs/${settings.db}/${settings.timestamp.format('x')}/${tableName}`;
                 mkdirp(dir, (err) => {
                     if (err) return error(err);
                     Promise.all(
                         templatePaths.map(tp => getStoredProc(tableName, tp.name, fields))
                     ).then(procs => {
                         Promise.all(
+                            //write individual proc files
                             procs.map((proc, i) => writeOutProc(dir, templatePaths[i].name, proc))
-                        ).then(done, error);
+                        ).then(() => {
+                            //write combined proc file
+                            var wholeTableProcFile = procs.join(os.EOL);
+                            writeOutProc(dir, 'all', wholeTableProcFile).then(done, error);
+                        }, error);
                     }, () => {
                         error();
                     });
                 });
-
-
             }, error);
-
-
-
-
-
-            
         });
     });
 };
@@ -207,17 +217,38 @@ function getStoredProc(tableName, templateName, fields){
 
 exports.generate = () => {
     return new Promise((done, error) => {
+        console.log('Starting generation...');
         if(!settings.setupRun){
             return error();
         }
         var c = settings.connection;
+        console.log(`Changing to DB ${settings.db}...`);
         c.changeUser({
             database: settings.db
         }, err => {
             if(err) return error(err);
-            Promise.all(settings.tables.map(generateForTable)).then(function(){
-                done();
-            }, error)
+
+            var tableIndex = 0;
+            var tableProcs =[];
+            function goForTable(){
+                generateForTable(settings.tables[tableIndex]).then((tableProc) => {
+                    tableProcs.push(tableProc);
+                    tableIndex++;
+                    if(tableIndex >= settings.tables.length){
+                        //done
+                        var dir = `./procs/${settings.db}/${settings.timestamp.format('x')}`;
+                        //write notes
+                        fs.writeFile(`${dir}/notes.txt`, settings.notes, (err) => {
+                            if(err) return error(err);
+                            writeOutProc(dir, settings.db, tableProcs.join(os.EOL)).then(done, error);
+                        })
+                        
+                    }else{
+                        goForTable();
+                    }
+                }, error);
+            }
+            goForTable();
         });
     });
 };

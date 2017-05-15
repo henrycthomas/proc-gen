@@ -1,5 +1,5 @@
 DELIMITER $${~n}
-DROP PROCEDURE IF EXISTS `{tableName}_update`;
+DROP PROCEDURE IF EXISTS `{tableName}_update`;{~n}
 CREATE DEFINER=`{user}`@`{host}` PROCEDURE `{tableName}_update`({~n}
 	{#fields}
         {#all}
@@ -24,4 +24,4 @@ WHERE{~n}
     {/fields}
     ;{~n}
 END$${~n}
-DELIMITER ;
+DELIMITER ;{~n}
